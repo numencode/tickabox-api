@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Todo extends Model
 {
@@ -19,7 +19,7 @@ class Todo extends Model
     ];
 
     protected $casts = [
-        'is_completed'     => 'boolean',
+        'is_completed' => 'boolean',
         'last_modified_at' => 'datetime',
     ];
 

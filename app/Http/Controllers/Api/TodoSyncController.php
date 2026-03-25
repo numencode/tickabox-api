@@ -2,21 +2,21 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
 use App\Models\Todo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
-use App\Http\Controllers\Controller;
 
 class TodoSyncController extends Controller
 {
     public function push(Request $request)
     {
         $data = $request->validate([
-            'operations'             => ['required', 'array'],
-            'operations.*.uuid'      => ['required', 'uuid'],
+            'operations' => ['required', 'array'],
+            'operations.*.uuid' => ['required', 'uuid'],
             'operations.*.operation' => ['required', 'in:created,updated,deleted'],
-            'operations.*.payload'   => ['nullable', 'array'],
+            'operations.*.payload' => ['nullable', 'array'],
         ]);
 
         $user = $request->user();
@@ -30,10 +30,10 @@ class TodoSyncController extends Controller
             $incomingModifiedAt = $this->parseModifiedAt($payload);
 
             Log::debug('API SYNC PUSH: incoming operation', [
-                'user_id'              => $user->id,
-                'uuid'                 => $uuid,
-                'operation'            => $type,
-                'payload'              => $payload,
+                'user_id' => $user->id,
+                'uuid' => $uuid,
+                'operation' => $type,
+                'payload' => $payload,
                 'incoming_modified_at' => $incomingModifiedAt->toIso8601String(),
             ]);
 
@@ -44,7 +44,7 @@ class TodoSyncController extends Controller
 
             if ($type === 'deleted') {
                 if ($todo) {
-                    if (!$todo->last_modified_at || $incomingModifiedAt->gte($todo->last_modified_at)) {
+                    if (! $todo->last_modified_at || $incomingModifiedAt->gte($todo->last_modified_at)) {
                         $todo->last_modified_at = $incomingModifiedAt;
                         $todo->save();
                         $todo->delete();
@@ -52,24 +52,24 @@ class TodoSyncController extends Controller
                 }
 
                 $results[] = [
-                    'uuid'       => $uuid,
-                    'status'     => 'ok',
+                    'uuid' => $uuid,
+                    'status' => 'ok',
                     'deleted_at' => $incomingModifiedAt->toIso8601String(),
                 ];
 
                 continue;
             }
 
-            if (!$todo) {
+            if (! $todo) {
                 $todo = Todo::create([
-                    'uuid'             => $uuid,
-                    'user_id'          => $user->id,
-                    'title'            => $this->payloadString($payload, 'title', ''),
-                    'is_completed'     => $this->payloadBool($payload, 'is_completed', false),
+                    'uuid' => $uuid,
+                    'user_id' => $user->id,
+                    'title' => $this->payloadString($payload, 'title', ''),
+                    'is_completed' => $this->payloadBool($payload, 'is_completed', false),
                     'last_modified_at' => $incomingModifiedAt,
                 ]);
             } else {
-                if (!$todo->last_modified_at || $incomingModifiedAt->gte($todo->last_modified_at)) {
+                if (! $todo->last_modified_at || $incomingModifiedAt->gte($todo->last_modified_at)) {
                     $todo->title = $this->payloadString($payload, 'title', $todo->title);
                     $todo->is_completed = $this->payloadBool($payload, 'is_completed', (bool) $todo->is_completed);
                     $todo->last_modified_at = $incomingModifiedAt;
@@ -82,24 +82,24 @@ class TodoSyncController extends Controller
             }
 
             Log::debug('API SYNC PUSH: saved todo', [
-                'uuid'             => $todo->uuid,
-                'title'            => $todo->title,
-                'is_completed'     => (bool)$todo->is_completed,
+                'uuid' => $todo->uuid,
+                'title' => $todo->title,
+                'is_completed' => (bool) $todo->is_completed,
                 'last_modified_at' => optional($todo->last_modified_at)?->toIso8601String(),
             ]);
 
             $results[] = [
-                'uuid'             => $todo->uuid,
-                'status'           => 'ok',
-                'title'            => $todo->title,
-                'is_completed'     => (bool)$todo->is_completed,
+                'uuid' => $todo->uuid,
+                'status' => 'ok',
+                'title' => $todo->title,
+                'is_completed' => (bool) $todo->is_completed,
                 'last_modified_at' => optional($todo->last_modified_at)->toIso8601String(),
-                'deleted_at'       => optional($todo->deleted_at)->toIso8601String(),
+                'deleted_at' => optional($todo->deleted_at)->toIso8601String(),
             ];
         }
 
         return response()->json([
-            'results'     => $results,
+            'results' => $results,
             'server_time' => now()->toIso8601String(),
         ]);
     }
@@ -127,11 +127,11 @@ class TodoSyncController extends Controller
 
         return response()->json([
             'todos' => $todos->map(fn (Todo $todo) => [
-                'uuid'             => $todo->uuid,
-                'title'            => $todo->title,
-                'is_completed'     => (bool)$todo->is_completed,
+                'uuid' => $todo->uuid,
+                'title' => $todo->title,
+                'is_completed' => (bool) $todo->is_completed,
                 'last_modified_at' => optional($todo->last_modified_at)->toIso8601String(),
-                'deleted_at'       => optional($todo->deleted_at)->toIso8601String(),
+                'deleted_at' => optional($todo->deleted_at)->toIso8601String(),
             ])->values(),
             'server_time' => now()->toIso8601String(),
         ]);
@@ -139,7 +139,7 @@ class TodoSyncController extends Controller
 
     protected function parseModifiedAt(array $payload): Carbon
     {
-        if (array_key_exists('last_modified_at', $payload) && !empty($payload['last_modified_at'])) {
+        if (array_key_exists('last_modified_at', $payload) && ! empty($payload['last_modified_at'])) {
             return Carbon::parse($payload['last_modified_at']);
         }
 

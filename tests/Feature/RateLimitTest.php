@@ -1,7 +1,7 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\RateLimiter;
 
 // We need to use a real cache driver (not 'array')
 // for rate limits to persist between requests in a single test execution.
@@ -15,14 +15,14 @@ it('throttles login attempts after 10 failures', function () {
     // 1. Simulate 10 failed login attempts
     for ($i = 0; $i < 10; $i++) {
         $this->postJson('/api/login', [
-            'email'    => $email,
+            'email' => $email,
             'password' => 'wrong-password',
         ])->assertStatus(422);
     }
 
     // 2. The 11th attempt should be throttled
     $response = $this->postJson('/api/login', [
-        'email'    => $email,
+        'email' => $email,
         'password' => 'wrong-password',
     ]);
 
@@ -31,7 +31,7 @@ it('throttles login attempts after 10 failures', function () {
 });
 
 it('throttles the sync pull endpoint based on user id', function () {
-    $user = \App\Models\User::factory()->create();
+    $user = User::factory()->create();
 
     // AppServiceProvider allows 60 per minute for 'sync'
     for ($i = 0; $i < 60; $i++) {

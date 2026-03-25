@@ -11,15 +11,15 @@ use App\Models\User;
 
 it('can register a new user', function () {
     $response = $this->postJson('/api/register', [
-        'name'     => 'Test User',
-        'email'    => 'test@example.com',
+        'name' => 'Test User',
+        'email' => 'test@example.com',
         'password' => 'password123',
     ]);
 
     $response->assertStatus(201)
         ->assertJsonStructure([
             'token',
-            'user' => ['id', 'name', 'email']
+            'user' => ['id', 'name', 'email'],
         ]);
 
     $this->assertDatabaseHas('users', [
@@ -31,8 +31,8 @@ it('prevents registration with an existing email', function () {
     User::factory()->create(['email' => 'test@example.com']);
 
     $response = $this->postJson('/api/register', [
-        'name'     => 'New User',
-        'email'    => 'test@example.com',
+        'name' => 'New User',
+        'email' => 'test@example.com',
         'password' => 'password123',
     ]);
 
@@ -52,7 +52,7 @@ it('can login with correct credentials', function () {
     ]);
 
     $response = $this->postJson('/api/login', [
-        'email'    => $user->email,
+        'email' => $user->email,
         'password' => $password,
     ]);
 
@@ -64,7 +64,7 @@ it('fails login with incorrect password', function () {
     $user = User::factory()->create();
 
     $response = $this->postJson('/api/login', [
-        'email'    => $user->email,
+        'email' => $user->email,
         'password' => 'wrong-password',
     ]);
 
@@ -87,7 +87,7 @@ it('can fetch authenticated user data', function () {
     $response->assertStatus(200)
         ->assertJson([
             'user' => [
-                'id'    => $user->id,
+                'id' => $user->id,
                 'email' => $user->email,
             ],
         ]);
@@ -99,7 +99,7 @@ it('can logout and revoke token', function () {
     // Create a token manually to test physical deletion
     $token = $user->createToken('test-token')->plainTextToken;
 
-    $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+    $response = $this->withHeader('Authorization', 'Bearer '.$token)
         ->postJson('/api/logout');
 
     $response->assertStatus(200);
@@ -121,7 +121,7 @@ it('prevents a user from updating another users todo', function () {
     pushSync([[
         'uuid' => $todoOfB->uuid,
         'operation' => 'updated',
-        'payload' => ['title' => 'I hacked you']
+        'payload' => ['title' => 'I hacked you'],
     ]], $userA);
 
     // The title should NOT have changed

@@ -14,17 +14,17 @@ it('can create a new todo via push', function () {
     $uuid = (string) Str::uuid();
 
     pushSync([[
-        'uuid'      => $uuid,
+        'uuid' => $uuid,
         'operation' => 'created',
-        'payload'   => [
-            'title'            => 'Finish Laravel Tests',
-            'is_completed'     => false,
+        'payload' => [
+            'title' => 'Finish Laravel Tests',
+            'is_completed' => false,
             'last_modified_at' => now()->toIso8601String(),
         ],
     ]])->assertStatus(200);
 
     $this->assertDatabaseHas('todos', [
-        'uuid'  => $uuid,
+        'uuid' => $uuid,
         'title' => 'Finish Laravel Tests',
     ]);
 });
@@ -35,18 +35,18 @@ it('updates existing todo only if incoming timestamp is newer (LWW)', function (
 
     // 1. Create a todo on the server set at 12:00
     $todo = Todo::factory()->create([
-        'uuid'             => $uuid,
-        'user_id'          => $user->id,
-        'title'            => 'Server Version',
+        'uuid' => $uuid,
+        'user_id' => $user->id,
+        'title' => 'Server Version',
         'last_modified_at' => now()->subHours(2),
     ]);
 
     // 2. Try to push an update with an OLDER timestamp (11:00)
     pushSync([[
-        'uuid'      => $uuid,
+        'uuid' => $uuid,
         'operation' => 'updated',
-        'payload'   => [
-            'title'            => 'Stale Update',
+        'payload' => [
+            'title' => 'Stale Update',
             'last_modified_at' => now()->subHours(3),
         ],
     ]], $user);
@@ -55,10 +55,10 @@ it('updates existing todo only if incoming timestamp is newer (LWW)', function (
 
     // 3. Try to push an update with a NEWER timestamp (13:00)
     pushSync([[
-        'uuid'      => $uuid,
+        'uuid' => $uuid,
         'operation' => 'updated',
-        'payload'   => [
-            'title'            => 'Fresh Update',
+        'payload' => [
+            'title' => 'Fresh Update',
             'last_modified_at' => now()->addHour(),
         ],
     ]], $user);
@@ -71,9 +71,9 @@ it('can soft delete a todo via push', function () {
     $todo = Todo::factory()->create(['user_id' => $user->id]);
 
     pushSync([[
-        'uuid'      => $todo->uuid,
+        'uuid' => $todo->uuid,
         'operation' => 'deleted',
-        'payload'   => ['last_modified_at' => now()->toIso8601String()],
+        'payload' => ['last_modified_at' => now()->toIso8601String()],
     ]], $user);
 
     expect($todo->fresh()->trashed())->toBeTrue();
@@ -90,15 +90,15 @@ it('pulls only todos modified since a specific date', function () {
 
     // Create an old todo
     Todo::factory()->create([
-        'user_id'          => $user->id,
-        'updated_at'       => now()->subDays(10),
+        'user_id' => $user->id,
+        'updated_at' => now()->subDays(10),
         'last_modified_at' => now()->subDays(10),
     ]);
 
     // Create a new todo
     $newTodo = Todo::factory()->create([
-        'user_id'          => $user->id,
-        'updated_at'       => now(),
+        'user_id' => $user->id,
+        'updated_at' => now(),
         'last_modified_at' => now(),
     ]);
 

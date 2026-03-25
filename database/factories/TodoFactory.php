@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Todo;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,10 +19,10 @@ class TodoFactory extends Factory
     public function definition(): array
     {
         return [
-            'uuid'             => $this->faker->uuid(),
-            'user_id'          => \App\Models\User::factory(),
-            'title'            => $this->faker->sentence(),
-            'is_completed'     => $this->faker->boolean(),
+            'uuid' => $this->faker->uuid(),
+            'user_id' => User::factory(),
+            'title' => $this->faker->sentence(),
+            'is_completed' => $this->faker->boolean(),
             'last_modified_at' => now(),
         ];
     }
