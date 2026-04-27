@@ -4,46 +4,28 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/*
-|--------------------------------------------------------------------------
-| Global Test Case Configuration
-|--------------------------------------------------------------------------
-*/
-
-// This applies RefreshDatabase to every test in the Feature folder
 uses(TestCase::class, RefreshDatabase::class)->in('Feature');
 
-/*
-|--------------------------------------------------------------------------
-| Custom Helpers
-|--------------------------------------------------------------------------
-*/
-
-/**
- * Act as a specific user or a newly created one.
- */
-function asUser(?User $user = null)
+function asUser(?User $user = null): mixed
 {
     return test()->actingAs($user ?? User::factory()->create(), 'sanctum');
 }
 
-/**
- * A helper to quickly push sync operations.
- */
-function pushSync(array $operations, ?User $user = null)
+function pushSync(array $operations, ?User $user = null): mixed
 {
     return asUser($user)->postJson('/api/sync/push', [
         'operations' => $operations,
     ]);
 }
 
-/**
- * A helper to quickly pull sync data.
- */
-function pullSync(?string $since = null, ?User $user = null)
+function pullSync(?string $since = null, ?User $user = null, ?int $sinceId = null): mixed
 {
-    // Wrap $since in urlencode() to handle the ISO8601 special characters
-    $url = '/api/sync/pull'.($since ? '?since='.urlencode($since) : '');
+    $params = array_filter([
+        'since' => $since,
+        'since_id' => $sinceId,
+    ], fn ($v) => $v !== null);
+
+    $url = '/api/sync/pull'.($params ? '?'.http_build_query($params) : '');
 
     return asUser($user)->getJson($url);
 }

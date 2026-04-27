@@ -5,7 +5,7 @@ use App\Models\User;
 
 /*
 |--------------------------------------------------------------------------
-| Registration Tests
+| Registration
 |--------------------------------------------------------------------------
 */
 
@@ -13,117 +13,223 @@ it('can register a new user', function () {
     $response = $this->postJson('/api/register', [
         'name' => 'Test User',
         'email' => 'test@example.com',
-        'password' => 'password123',
+        'password' => 'SecurePass1',
     ]);
 
     $response->assertStatus(201)
         ->assertJsonStructure([
             'token',
+            'expires_at',
             'user' => ['id', 'name', 'email'],
         ]);
 
-    $this->assertDatabaseHas('users', [
-        'email' => 'test@example.com',
-    ]);
+    $this->assertDatabaseHas('users', ['email' => 'test@example.com']);
 });
 
 it('prevents registration with an existing email', function () {
     User::factory()->create(['email' => 'test@example.com']);
 
-    $response = $this->postJson('/api/register', [
+    $this->postJson('/api/register', [
         'name' => 'New User',
         'email' => 'test@example.com',
-        'password' => 'password123',
-    ]);
+        'password' => 'SecurePass1',
+    ])->assertStatus(422)->assertJsonValidationErrors(['email']);
+});
 
-    $response->assertStatus(422)
-        ->assertJsonValidationErrors(['email']);
+it('rejects registration with a weak password', function () {
+    // No uppercase letter — fails mixedCase()
+    $this->postJson('/api/register', [
+        'name' => 'Test User',
+        'email' => 'a@example.com',
+        'password' => 'password1',
+    ])->assertStatus(422)->assertJsonValidationErrors(['password']);
+
+    // No number — fails numbers()
+    $this->postJson('/api/register', [
+        'name' => 'Test User',
+        'email' => 'b@example.com',
+        'password' => 'Password',
+    ])->assertStatus(422)->assertJsonValidationErrors(['password']);
+
+    // Too short — fails min(8)
+    $this->postJson('/api/register', [
+        'name' => 'Test User',
+        'email' => 'c@example.com',
+        'password' => 'Ps1',
+    ])->assertStatus(422)->assertJsonValidationErrors(['password']);
+});
+
+it('normalises email to lowercase on registration', function () {
+    $this->postJson('/api/register', [
+        'name' => 'Test User',
+        'email' => 'TEST@EXAMPLE.COM',
+        'password' => 'SecurePass1',
+    ])->assertStatus(201);
+
+    // Read back via Eloquent — the stored value must be lowercase
+    expect(User::first()->email)->toBe('test@example.com');
 });
 
 /*
 |--------------------------------------------------------------------------
-| Login Tests
+| Login
 |--------------------------------------------------------------------------
 */
 
 it('can login with correct credentials', function () {
-    $user = User::factory()->create([
-        'password' => bcrypt($password = 'secret-password'),
-    ]);
+    // UserFactory default password is 'password'
+    $user = User::factory()->create();
 
-    $response = $this->postJson('/api/login', [
+    $this->postJson('/api/login', [
         'email' => $user->email,
-        'password' => $password,
-    ]);
-
-    $response->assertStatus(200)
-        ->assertJsonStructure(['token', 'user']);
+        'password' => 'password',
+    ])->assertOk()
+        ->assertJsonStructure(['token', 'expires_at', 'user' => ['id', 'name', 'email']]);
 });
 
 it('fails login with incorrect password', function () {
     $user = User::factory()->create();
 
-    $response = $this->postJson('/api/login', [
+    $this->postJson('/api/login', [
         'email' => $user->email,
         'password' => 'wrong-password',
-    ]);
+    ])->assertStatus(422)->assertJsonValidationErrors(['email']);
+});
 
-    $response->assertStatus(422)
-        ->assertJsonValidationErrors(['email']);
+it('fails login for an inactive account', function () {
+    $user = User::factory()->create(['is_active' => false]);
+
+    $this->postJson('/api/login', [
+        'email' => $user->email,
+        'password' => 'password',
+    ])->assertStatus(422)->assertJsonValidationErrors(['email']);
+});
+
+it('accepts email in any case on login', function () {
+    $user = User::factory()->create(['email' => 'user@example.com']);
+
+    $this->postJson('/api/login', [
+        'email' => 'USER@EXAMPLE.COM',
+        'password' => 'password',
+    ])->assertOk()->assertJsonPath('user.email', 'user@example.com');
+});
+
+it('invalidates all previous tokens on login', function () {
+    $user = User::factory()->create();
+    $user->createToken('old-device-one');
+    $user->createToken('old-device-two');
+
+    expect($user->tokens()->count())->toBe(2);
+
+    $this->postJson('/api/login', [
+        'email' => $user->email,
+        'password' => 'password',
+    ])->assertOk();
+
+    // Only the new token from this login should exist
+    expect($user->tokens()->count())->toBe(1);
 });
 
 /*
 |--------------------------------------------------------------------------
-| Authenticated Routes Tests
+| Protected Routes — Me
 |--------------------------------------------------------------------------
 */
 
-it('can fetch authenticated user data', function () {
+it('can fetch the authenticated user profile', function () {
     $user = User::factory()->create();
 
-    // Using custom asUser() helper from Pest.php
-    $response = asUser($user)->getJson('/api/me');
-
-    $response->assertStatus(200)
-        ->assertJson([
-            'user' => [
-                'id' => $user->id,
-                'email' => $user->email,
-            ],
-        ]);
+    asUser($user)->getJson('/api/me')
+        ->assertOk()
+        ->assertJson(['user' => ['id' => $user->id, 'email' => $user->email]]);
 });
 
-it('can logout and revoke token', function () {
+/*
+|--------------------------------------------------------------------------
+| Protected Routes — Logout
+|--------------------------------------------------------------------------
+*/
+
+it('can logout and revoke the current token', function () {
     $user = User::factory()->create();
+    $token = $user->createToken('mobile')->plainTextToken;
 
-    // Create a token manually to test physical deletion
-    $token = $user->createToken('test-token')->plainTextToken;
-
-    $response = $this->withHeader('Authorization', 'Bearer '.$token)
-        ->postJson('/api/logout');
-
-    $response->assertStatus(200);
+    $this->withHeader('Authorization', 'Bearer '.$token)
+        ->postJson('/api/logout')
+        ->assertOk();
 
     expect($user->tokens()->count())->toBe(0);
 });
 
-it('protects routes from unauthenticated users', function () {
-    $this->getJson('/api/me')->assertStatus(401);
-    $this->postJson('/api/logout')->assertStatus(401);
+it('can logout from all devices at once', function () {
+    $user = User::factory()->create();
+    $user->createToken('device-one');
+    $activeToken = $user->createToken('device-two')->plainTextToken;
+
+    expect($user->tokens()->count())->toBe(2);
+
+    $this->withHeader('Authorization', 'Bearer '.$activeToken)
+        ->postJson('/api/logout/all')
+        ->assertOk()
+        ->assertJson(['message' => 'Signed out from all devices.']);
+
+    expect($user->tokens()->count())->toBe(0);
 });
 
-it('prevents a user from updating another users todo', function () {
+/*
+|--------------------------------------------------------------------------
+| Active User Enforcement
+|--------------------------------------------------------------------------
+*/
+
+it('blocks inactive users from all protected routes', function () {
+    $user = User::factory()->create(['is_active' => false]);
+    $token = $user->createToken('mobile')->plainTextToken;
+
+    // Every protected endpoint must return 403
+    $this->withHeader('Authorization', 'Bearer '.$token)->getJson('/api/me')->assertForbidden();
+    $this->withHeader('Authorization', 'Bearer '.$token)->postJson('/api/logout')->assertForbidden();
+    $this->withHeader('Authorization', 'Bearer '.$token)->getJson('/api/sync/pull')->assertForbidden();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Unauthenticated Access
+|--------------------------------------------------------------------------
+*/
+
+it('protects all authenticated routes from unauthenticated access', function () {
+    $this->getJson('/api/me')->assertUnauthorized();
+    $this->postJson('/api/logout')->assertUnauthorized();
+    $this->postJson('/api/logout/all')->assertUnauthorized();
+    $this->postJson('/api/sync/push', ['operations' => []])->assertUnauthorized();
+    $this->getJson('/api/sync/pull')->assertUnauthorized();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Cross-User Isolation
+|--------------------------------------------------------------------------
+*/
+
+it('cannot modify another users todo via push', function () {
     $userA = User::factory()->create();
     $userB = User::factory()->create();
-    $todoOfB = Todo::factory()->create(['user_id' => $userB->id]);
+    $todoOfB = Todo::factory()->create([
+        'user_id' => $userB->id,
+        'title' => 'Original Title',
+    ]);
 
-    // User A tries to "update" User B's todo
+    // UserA sends a valid update targeting UserB's todo UUID
     pushSync([[
         'uuid' => $todoOfB->uuid,
         'operation' => 'updated',
-        'payload' => ['title' => 'I hacked you'],
-    ]], $userA);
+        'payload' => [
+            'title' => 'Hacked Title',
+            'last_modified_at' => now()->subSecond()->toIso8601String(),
+        ],
+    ]], $userA)->assertOk();
 
-    // The title should NOT have changed
-    expect($todoOfB->fresh()->title)->not->toBe('I hacked you');
+    // UserB's todo must be completely unchanged
+    expect($todoOfB->fresh()->title)->toBe('Original Title');
 });
