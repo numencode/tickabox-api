@@ -13,8 +13,9 @@ return new class extends Migration
     {
         Schema::create('todos', function (Blueprint $table) {
             $table->id();
-            $table->uuid('uuid')->unique();
+            $table->uuid('uuid');
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->unique(['user_id', 'uuid']);
             $table->string('title');
             $table->boolean('is_completed')->default(false);
             $table->timestamp('last_modified_at')->nullable();

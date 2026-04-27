@@ -9,8 +9,9 @@ Route::middleware('throttle:auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
 });
 
-Route::middleware(['auth:sanctum', 'throttle:sync'])->group(function () {
+Route::middleware(['auth:sanctum', 'active', 'throttle:sync'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/logout/all', [AuthController::class, 'logoutAll']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/sync/push', [TodoSyncController::class, 'push']);
     Route::get('/sync/pull', [TodoSyncController::class, 'pull']);
