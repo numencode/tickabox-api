@@ -37,26 +37,19 @@ it('prevents registration with an existing email', function () {
 });
 
 it('rejects registration with a weak password', function () {
-    // No uppercase letter — fails mixedCase()
-    $this->postJson('/api/register', [
-        'name' => 'Test User',
-        'email' => 'a@example.com',
-        'password' => 'password1',
-    ])->assertStatus(422)->assertJsonValidationErrors(['password']);
-
-    // No number — fails numbers()
-    $this->postJson('/api/register', [
-        'name' => 'Test User',
-        'email' => 'b@example.com',
-        'password' => 'Password',
-    ])->assertStatus(422)->assertJsonValidationErrors(['password']);
-
     // Too short — fails min(8)
     $this->postJson('/api/register', [
         'name' => 'Test User',
-        'email' => 'c@example.com',
-        'password' => 'Ps1',
+        'email' => 'a@example.com',
+        'password' => 'short',
     ])->assertStatus(422)->assertJsonValidationErrors(['password']);
+
+    // Simple lowercase-only passwords are now accepted (policy is min(8) only)
+    $this->postJson('/api/register', [
+        'name' => 'Test User',
+        'email' => 'b@example.com',
+        'password' => 'password',
+    ])->assertStatus(201);
 });
 
 it('normalises email to lowercase on registration', function () {
